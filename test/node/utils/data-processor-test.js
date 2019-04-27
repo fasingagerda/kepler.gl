@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ import {geojsonData, fields as geojsonFields, rows as geojsonRows} from 'test/fi
 import {
   getFieldsFromData,
   getSampleForTypeAnalyze,
-  parseCsvDataByFieldType,
+  parseCsvRowsByFieldType,
   processCsvData,
   processGeojson
 } from 'processors/data-processor';
@@ -41,34 +41,38 @@ test('Processor -> getFieldsFromData', t => {
     time_str: 'January 1st 2017 11:00pm ',
     value: '4',
     surge: '1.2',
-    isTrip: 'true'
+    isTrip: 'true',
+    zeroOnes: '0'
   }, {
     time: '2016-09-17 00:30:08',
     trip_epoch: '1472860800000',
     time_str: 'January 1st 2017 11:01pm ',
     value: '3',
     surge: null,
-    isTrip: 'false'
+    isTrip: 'false',
+    zeroOnes: '1'
   }, {
     time: null,
     trip_epoch: null,
     time_str: 'January 1st, 2017 11:02pm ',
     value: '2',
     surge: '1.3',
-    isTrip: null
+    isTrip: null,
+    zeroOnes: '1'
   }, {
     time: null,
     trip_epoch: null,
     time_str: 'January 1st, 2017 11:02pm ',
     value: '0',
     surge: '1.4',
-    isTrip: null
+    isTrip: null,
+    zeroOnes: '0'
   }];
 
   const headerRow = Object.keys(data[0]);
   const fields = getFieldsFromData(data, headerRow);
   const expectedFieldTypes =
-    ['timestamp', 'timestamp', 'timestamp', 'integer', 'real', 'boolean'];
+    ['timestamp', 'timestamp', 'timestamp', 'integer', 'real', 'boolean', 'integer'];
 
   fields.forEach((f, i) =>
     t.equal(f.type, expectedFieldTypes[i],
@@ -132,7 +136,7 @@ test('Processor => processGeojson', t => {
 });
 
 
-test('Processor -> parseCsvDataByFieldType -> real', t => {
+test('Processor -> parseCsvRowsByFieldType -> real', t => {
 
   const field = {
     type: ALL_FIELD_TYPES.real
@@ -160,12 +164,12 @@ test('Processor -> parseCsvDataByFieldType -> real', t => {
     [1550.0]
   ];
 
-  parseCsvDataByFieldType(rows, field, 0);
+  parseCsvRowsByFieldType(rows, field, 0);
   t.same(rows, expected, 'should parsed reals properly');
   t.end();
 });
 
-test('Processor -> parseCsvDataByFieldType -> integer', t => {
+test('Processor -> parseCsvRowsByFieldType -> integer', t => {
 
   const field = {
     type: ALL_FIELD_TYPES.integer
@@ -189,12 +193,12 @@ test('Processor -> parseCsvDataByFieldType -> integer', t => {
     [155]
   ];
 
-  parseCsvDataByFieldType(rows, field, 0);
+  parseCsvRowsByFieldType(rows, field, 0);
   t.same(rows, expected, 'should parsed ints properly');
   t.end();
 });
 
-test('Processor -> parseCsvDataByFieldType -> boolean', t => {
+test('Processor -> parseCsvRowsByFieldType -> boolean', t => {
 
   const field = {
     type: ALL_FIELD_TYPES.boolean
@@ -223,7 +227,7 @@ test('Processor -> parseCsvDataByFieldType -> boolean', t => {
     [true]
   ];
 
-  parseCsvDataByFieldType(rows, field, 0);
+  parseCsvRowsByFieldType(rows, field, 0);
   t.same(rows, expected, 'should parsed boolean properly');
   t.end();
 });

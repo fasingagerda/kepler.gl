@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,7 @@ import {hexToRgb} from './color-utils';
 import uniq from 'lodash.uniq';
 import {TRIP_POINT_FIELDS} from 'constants/default-settings';
 import {generateHashId} from './utils';
-import {validateInputData} from 'processors/data-processor'
-  ;
+import {validateInputData} from 'processors/data-processor';
 // apply a color for each dataset
 // to use as label colors
 const datasetColors = [

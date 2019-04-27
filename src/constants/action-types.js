@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,42 @@
 import keyMirror from 'keymirror';
 import {ACTION_PREFIX} from './default-settings';
 
+/**
+ * Kepler.gl action types, can be listened by reducers to perform additional tasks whenever an action is called in kepler.gl
+ * @constant
+ * @type {Object}
+ * @public
+ *
+ * @example
+ * // store.js
+ * import {handleActions} from 'redux-actions';
+ * import {createStore, combineReducers, applyMiddleware} from 'redux';
+ * import {taskMiddleware} from 'react-palm/tasks';
+ *
+ * import keplerGlReducer from 'kepler.gl/reducers';
+ * import {ActionTypes} from 'kepler.gl/actions';
+ *
+ * const appReducer = handleActions({
+ *   // listen on kepler.gl map update action to store a copy of viewport in app state
+ *   [ActionTypes.UPDATE_MAP]: (state, action) => ({
+ *     ...state,
+ *     viewport: action.payload
+ *   }),
+ * }, {});
+ *
+ * const reducers = combineReducers({
+ *   app: appReducer,
+ *   keplerGl: keplerGlReducer
+ * });
+ *
+ * export default createStore(reducers, {}, applyMiddleware(taskMiddleware))
+ */
 const ActionTypes = keyMirror({
+  // identity action
+  REGISTER_ENTRY: null,
+  DELETE_ENTRY: null,
+  RENAME_ENTRY: null,
+
   // visState
   ADD_DATA: null,
   ADD_FILTER: null,
@@ -68,12 +103,17 @@ const ActionTypes = keyMirror({
   INPUT_MAP_STYLE: null,
   LOAD_CUSTOM_MAP_STYLE: null,
   ADD_CUSTOM_MAP_STYLE: null,
+  REQUEST_MAP_STYLES: null,
 
   // uiState
   TOGGLE_SIDE_PANEL: null,
   TOGGLE_MODAL: null,
+  SHOW_EXPORT_DROPDOWN: null,
+  HIDE_EXPORT_DROPDOWN: null,
   OPEN_DELETE_MODAL: null,
   TOGGLE_MAP_CONTROL: null,
+  ADD_NOTIFICATION: null,
+  REMOVE_NOTIFICATION: null,
 
   // uiState > export image
   SET_RATIO: null,
@@ -87,8 +127,10 @@ const ActionTypes = keyMirror({
   SET_EXPORT_SELECTED_DATASET: null,
   SET_EXPORT_DATA_TYPE: null,
   SET_EXPORT_FILTERED: null,
-  SET_EXPORT_CONFIG: null,
   SET_EXPORT_DATA: null,
+
+  // uiState > export html
+  SET_EXPORT_MAPBOX_ACCESS_TOKEN: null,
 
   // all
   INIT: null,

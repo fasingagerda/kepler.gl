@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -68,7 +68,7 @@ class KeplerGLSchema {
    *
    * Get config and data of current map to save
    * @param {Object} state
-   * @returns {Object | null} app state to save
+   * @returns {{datasets: Object[], config: Object, info: Object}} app state to save
    */
   save(state) {
     return {

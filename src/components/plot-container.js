@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -76,6 +76,7 @@ export default function PlotContainerFactory(MapContainer) {
       this.mapStyleSelector,
       this.resolutionSelector,
       (mapStyle, resolution) => ({
+        ...mapStyle,
         bottomMapStyle: scaleMapStyleByResolution(
           mapStyle.bottomMapStyle,
           resolution
@@ -99,7 +100,7 @@ export default function PlotContainerFactory(MapContainer) {
 
         this.props.startExportingImage();
         convertToPng(this.plottingAreaRef).then(dataUri => {
-          this.props.setExportImageDataUri({dataUri});
+          this.props.setExportImageDataUri(dataUri);
           window.devicePixelRatio = savedDevicePixelRatio;
         });
       }

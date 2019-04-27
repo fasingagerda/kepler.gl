@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,8 @@ import {
 
 import {receiveMapConfig} from 'actions/actions';
 
-import reducer, {mapStateReducerFactory, INITIAL_MAP_STATE} from 'reducers/map-state';
+import reducer, {mapStateReducerFactory} from 'reducers/map-state';
+import {INITIAL_MAP_STATE} from 'reducers/map-state-updaters';
 
 const InitialMapState = reducer(undefined, {});
 test('#mapStateReducer', t => {

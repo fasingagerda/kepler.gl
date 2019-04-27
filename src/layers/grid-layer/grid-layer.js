@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -54,6 +54,7 @@ export default class GridLayer extends AggregationLayer {
   get layerIcon() {
     return GridLayerIcon;
   }
+
   formatLayerData(_, allData, filteredIndex, oldLayerData, opt = {}) {
     const formattedData = super.formatLayerData(
       _,
@@ -81,11 +82,11 @@ export default class GridLayer extends AggregationLayer {
   renderLayer({
     data,
     idx,
-    layerInteraction,
     objectHovered,
     mapState,
     interaction,
-    layerCallbacks
+    layerCallbacks,
+    layerInteraction
   }) {
     const zoomFactor = this.getZoomFactor(mapState);
     const eleZoomFactor = this.getElevationZoomFactor(mapState);
@@ -100,6 +101,8 @@ export default class GridLayer extends AggregationLayer {
         idx,
         cellSize,
         coverage: visConfig.coverage,
+        // highlight
+        autoHighlight: visConfig.enable3d,
 
         // color
         colorRange: this.getColorRange(visConfig.colorRange),
@@ -113,6 +116,8 @@ export default class GridLayer extends AggregationLayer {
         elevationScale: visConfig.elevationScale * eleZoomFactor,
         elevationLowerPercentile: visConfig.elevationPercentile[0],
         elevationUpperPercentile: visConfig.elevationPercentile[1],
+        // parameters
+        parameters: {depthTest: Boolean(visConfig.enable3d || mapState.dragRotate)},
 
         // render
         fp64: visConfig['hi-precision'],
@@ -123,19 +128,21 @@ export default class GridLayer extends AggregationLayer {
         onSetColorDomain: layerCallbacks.onSetLayerDomain
       }),
 
+      // render an outline of each cell if not extruded
       ...(this.isLayerHovered(objectHovered) && !visConfig.enable3d
         ? [
             new GeoJsonLayer({
+              ...layerInteraction,
               id: `${this.id}-hovered`,
               data: [
                 pointToPolygonGeo({
                   object: objectHovered.object,
                   cellSize,
                   coverage: visConfig.coverage,
-                  properties: {lineColor: this.config.highlightColor},
                   mapState
                 })
               ],
+              getLineColor: this.config.highlightColor,
               lineWidthScale: 8 * zoomFactor
             })
           ]

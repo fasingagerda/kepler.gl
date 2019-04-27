@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,7 +36,7 @@ import {LAYER_BLENDINGS} from 'constants/default-settings';
  * save it for later
  *
  * @param {Object} state
- * @param {Object[]} filtersToMerge
+ * @param {Array<Object>} filtersToMerge
  * @return {Object} updatedState
  */
 export function mergeFilters(state, filtersToMerge) {
@@ -95,8 +95,8 @@ export function mergeFilters(state, filtersToMerge) {
  * Merge layers from de-serialized state, if no fields or data are loaded
  * save it for later
  *
- * @param {object} state
- * @param {Object[]} layersToMerge
+ * @param {Object} state
+ * @param {Array<Object>} layersToMerge
  * @return {Object} state
  */
 export function mergeLayers(state, layersToMerge) {
@@ -144,7 +144,7 @@ export function mergeLayers(state, layersToMerge) {
 /**
  * Merge interactions with saved config
  *
- * @param {object} state
+ * @param {Object} state
  * @param {Object} interactionToBeMerged
  * @return {Object} mergedState
  */
@@ -262,7 +262,7 @@ export function mergeLayerBlending(state, layerBlending) {
  * Validate saved layer columns with new data,
  * update fieldIdx based on new fields
  *
- * @param {Object[]} fields
+ * @param {Array<Object>} fields
  * @param {Object} savedCols
  * @param {Object} emptyCols
  * @return {null | Object} - validated columns or null
@@ -292,10 +292,33 @@ export function validateSavedLayerColumns(fields, savedCols, emptyCols) {
 }
 
 /**
+ * Validate saved text label config with new data
+ * refer to vis-state-schema.js TextLabelSchemaV1
+ *
+ * @param {Array<Object>} fields
+ * @param {Object} savedTextLabel
+ * @return {Object} - validated textlabel
+ */
+export function validateSavedTextLabel(fields, layerTextLabel, savedTextLabel) {
+
+  // validate field
+  const field = savedTextLabel.field ? fields.find(fd =>
+    Object.keys(savedTextLabel.field).every(
+      key => savedTextLabel.field[key] === fd[key]
+    )
+  ) : null;
+
+  return Object.keys(layerTextLabel).reduce((accu, key) => ({
+    ...accu,
+    [key]: key === 'field' ? field : (savedTextLabel[key] || layerTextLabel[key])
+  }), {});
+}
+
+/**
  * Validate saved visual channels config with new data,
  * refer to vis-state-schema.js VisualChannelSchemaV1
  *
- * @param {Object[]} fields
+ * @param {Array<Object>} fields
  * @param {Object} visualChannels
  * @param {Object} savedLayer
  * @return {Object} - validated visual channel in config or {}
@@ -327,8 +350,8 @@ export function validateSavedVisualChannels(
  * Validate saved layer config with new data,
  * update fieldIdx based on new fields
  *
- * @param {Object[]} fields
- * @param {String} dataId
+ * @param {Array<Object>} fields
+ * @param {string} dataId
  * @param {Object} savedLayer
  * @param {Object} layerClasses
  * @return {null | Object} - validated layer or null
@@ -372,6 +395,12 @@ export function validateLayerWithData({fields, id: dataId}, savedLayer, layerCla
     savedLayer
   );
 
+  const textLabel = savedLayer.config.textLabel && newLayer.config.textLabel ? validateSavedTextLabel(
+    fields,
+    newLayer.config.textLabel,
+    savedLayer.config.textLabel
+  ) : newLayer.config.textLabel;
+
   // copy visConfig over to emptyLayer to make sure it has all the props
   const visConfig = newLayer.copyLayerConfig(
     newLayer.config.visConfig,
@@ -382,6 +411,7 @@ export function validateLayerWithData({fields, id: dataId}, savedLayer, layerCla
   newLayer.updateLayerConfig({
     columns,
     visConfig,
+    textLabel,
     ...foundVisualChannelConfigs
   });
 
@@ -392,8 +422,8 @@ export function validateLayerWithData({fields, id: dataId}, savedLayer, layerCla
  * Validate saved filter config with new data,
  * calculate domain and fieldIdx based new fields and data
  *
- * @param {Object[]} dataset.fields
- * @param {Object[]} dataset.allData
+ * @param {Array<Object>} dataset.fields
+ * @param {Array<Object>} dataset.allData
  * @param {Object} filter - filter to be validate
  * @return {Object | null} - validated filter
  */

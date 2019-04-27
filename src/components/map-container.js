@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,20 +23,19 @@ import React, {Component} from 'react';
 import PropTypes from 'prop-types';
 import MapboxGLMap from 'react-map-gl';
 import DeckGL from 'deck.gl';
-import {GL} from 'luma.gl';
 
 // components
 import MapPopoverFactory from 'components/map/map-popover';
 import MapControlFactory from 'components/map/map-control';
 import {StyledMapContainer} from 'components/common/styled-components';
 
-// Overlay type
+// utils
 import {generateMapboxLayers, updateMapboxLayers} from '../layers/mapbox-utils';
-
+import {onWebGLInitialized, setLayerBlending} from 'utils/gl-utils';
 import {transformRequest} from 'utils/map-style-utils/mapbox-utils';
 
 // default-settings
-import {LAYER_BLENDINGS} from 'constants/default-settings';
+import ThreeDBuildingLayer from '../deckgl-layers/3d-building-layer/3d-building-layer';
 
 const MAP_STYLE = {
   container: {
@@ -48,11 +47,13 @@ const MAP_STYLE = {
   }
 };
 
-const getGlConst = d => GL[d];
-
 const MAPBOXGL_STYLE_UPDATE = 'style.load';
+const MAPBOXGL_RENDER = 'render';
+const TRANSITION_DURATION = 0;
+
 MapContainerFactory.deps = [
-  MapPopoverFactory, MapControlFactory];
+  MapPopoverFactory, MapControlFactory
+];
 
 export default function MapContainerFactory(MapPopover, MapControl) {
   class MapContainer extends Component {
@@ -79,7 +80,8 @@ export default function MapContainerFactory(MapPopover, MapControl) {
       mapLayers: PropTypes.object,
       onMapToggleLayer: PropTypes.func,
       onMapStyleLoaded: PropTypes.func,
-      onMapRender: PropTypes.func
+      onMapRender: PropTypes.func,
+      getMapboxRef: PropTypes.func
     };
 
     static defaultProps = {
@@ -89,8 +91,6 @@ export default function MapContainerFactory(MapPopover, MapControl) {
     constructor(props) {
       super(props);
       this.state = {
-        reRenderKey: 0,
-        gl: null,
         mousePosition: [0, 0]
       };
       this.previousLayers = {
@@ -98,29 +98,15 @@ export default function MapContainerFactory(MapPopover, MapControl) {
       };
     }
 
-    componentWillReceiveProps(nextProps) {
-      if (
-        this.props.mapState.dragRotate !== nextProps.mapState.dragRotate ||
-        this.props.layerBlending !== nextProps.layerBlending
-      ) {
-        // increment rerender key to force gl reinitialize when
-        // perspective or layer blending changed
-        // TODO: layer blending can now be implemented per layer base
-        this.setState({
-          reRenderKey: this.state.reRenderKey + 1
-        });
-      }
-    }
-
     componentWillUnmount() {
       // unbind mapboxgl event listener
       if (this._map) {
         this._map.off(MAPBOXGL_STYLE_UPDATE);
+        this._map.off(MAPBOXGL_RENDER);
       }
     }
 
     /* component private functions */
-
     _onCloseMapPopover = () => {
       this.props.visStateActions.onLayerClick(null);
     };
@@ -132,20 +118,9 @@ export default function MapContainerFactory(MapPopover, MapControl) {
     };
 
     _onWebGLInitialized = gl => {
-      // enable depth test for perspective mode
-      if (this.props.mapState.dragRotate) {
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL);
-      } else {
-        gl.disable(gl.DEPTH_TEST);
-      }
-
+      onWebGLInitialized(gl);
       // allow Uint32 indices in building layer
-      gl.getExtension('OES_element_index_uint');
-
-      this._togglelayerBlending(gl);
-
-      this.setState({gl});
+      // gl.getExtension('OES_element_index_uint');
     };
 
     _onMouseMove = evt => {
@@ -163,63 +138,53 @@ export default function MapContainerFactory(MapPopover, MapControl) {
       visStateActions.toggleLayerForMap(mapIndex, layerId);
     };
 
-    _setMapboxMap = (mapbox) => {
+    _onMapboxStyleUpdate = () => {
+      // force refresh mapboxgl layers
+
+      updateMapboxLayers(
+        this._map,
+        this._renderMapboxLayers(),
+        this.previousLayers,
+        this.props.mapLayers,
+        {force: true}
+      );
+
+      if (typeof this.props.onMapStyleLoaded === 'function') {
+        this.props.onMapStyleLoaded(this._map);
+      }
+    };
+
+    _setMapboxMap = mapbox => {
       if (!this._map && mapbox) {
+
         this._map = mapbox.getMap();
+        // i noticed in certain context we don't access the actual map element
+        if (!this.map) {
+          return;
+        }
         // bind mapboxgl event listener
-        this._map.on(MAPBOXGL_STYLE_UPDATE, () => {
-          // force refresh mapboxgl layers
+        this._map.on(MAPBOXGL_STYLE_UPDATE, this._onMapboxStyleUpdate);
 
-          updateMapboxLayers(
-            this._map,
-            this._renderMapboxLayers(),
-            this.previousLayers,
-            this.props.mapLayers,
-            {force: true}
-          );
-
-          if (typeof this.props.onMapStyleLoaded === 'function') {
-            this.props.onMapStyleLoaded(this._map);
-          }
-        });
-
-        this._map.on('render', () => {
+        this._map.on(MAPBOXGL_RENDER, () => {
           if (typeof this.props.onMapRender === 'function') {
             this.props.onMapRender(this._map);
           }
         });
       }
-    }
 
-    /* deck.gl doesn't support blendFuncSeparate yet
-     * so we're applying the blending ourselves
-    */
-    _togglelayerBlending = gl => {
-      const blending = LAYER_BLENDINGS[this.props.layerBlending];
-      const {
-        enable,
-        blendFunc,
-        blendEquation,
-        blendFuncSeparate,
-        blendEquationSeparate
-      } = blending;
-
-      if (enable) {
-        gl.enable(GL.BLEND);
-        if (blendFunc) {
-          gl.blendFunc(...blendFunc.map(getGlConst));
-          gl.blendEquation(GL[blendEquation]);
-        } else {
-          gl.blendFuncSeparate(...blendFuncSeparate.map(getGlConst));
-          gl.blendEquationSeparate(...blendEquationSeparate.map(getGlConst));
-        }
-      } else {
-        gl.disable(GL.BLEND);
+      if (this.props.getMapboxRef) {
+        // The parent component can gain access to our MapboxGlMap by
+        // providing this callback. Note that 'mapbox' will be null when the
+        // ref is unset (e.g. when a split map is closed).
+        this.props.getMapboxRef(mapbox, this.props.index);
       }
     };
 
-    /* component render functions */
+    _onBeforeRender = ({gl}) => {
+      setLayerBlending(gl, this.props.layerBlending);
+    };
 
+    /* component render functions */
     /* eslint-disable complexity */
     _renderObjectLayerPopover() {
       // TODO: move this into reducer so it can be tested
@@ -310,7 +275,6 @@ export default function MapContainerFactory(MapPopover, MapControl) {
         clicked,
         mapLayers,
         mapState,
-        visStateActions,
         interactionConfig
       } = this.props;
       const {mousePosition} = this.state;
@@ -318,9 +282,8 @@ export default function MapContainerFactory(MapPopover, MapControl) {
       const data = layerData[idx];
 
       const layerInteraction = {
-        onHover: visStateActions.onLayerHover,
-        onClick: visStateActions.onLayerClick,
-        mousePosition
+        mousePosition,
+        wrapLongitude: true
       };
 
       const objectHovered = clicked || hoverInfo;
@@ -356,8 +319,11 @@ export default function MapContainerFactory(MapPopover, MapControl) {
     _renderOverlay() {
       const {
         mapState,
+        mapStyle,
         layerData,
-        layerOrder
+        layerOrder,
+        visStateActions,
+        mapboxApiAccessToken
       } = this.props;
 
       let deckGlLayers = [];
@@ -371,13 +337,23 @@ export default function MapContainerFactory(MapPopover, MapControl) {
           .reduce(this._renderLayer, []);
       }
 
+      if (mapStyle.visibleLayerGroups['3d building']) {
+        deckGlLayers.push(new ThreeDBuildingLayer({
+          id: '_keplergl_3d-building',
+          mapboxApiAccessToken,
+          threeDBuildingColor: mapStyle.threeDBuildingColor
+        }));
+      }
+
       return (
         <DeckGL
-          {...mapState}
+          viewState={mapState}
           id="default-deckgl-overlay"
           layers={deckGlLayers}
-          key={this.state.reRenderKey}
           onWebGLInitialized={this._onWebGLInitialized}
+          onBeforeRender={this._onBeforeRender}
+          onLayerHover={visStateActions.onLayerHover}
+          onLayerClick={visStateActions.onLayerClick}
         />
       );
     }
@@ -412,16 +388,16 @@ export default function MapContainerFactory(MapPopover, MapControl) {
     }
 
     render() {
-      const {mapState, mapStyle, mapStateActions} = this.props;
+      const {
+        mapState, mapStyle, mapStateActions, mapLayers, layers, MapComponent,
+        datasets, mapboxApiAccessToken, mapControls, toggleMapControl
+      } = this.props;
       const {updateMap, onMapClick} = mapStateActions;
 
       if (!mapStyle.bottomMapStyle) {
         // style not yet loaded
         return <div/>;
       }
-
-      const {mapLayers, layers, datasets, mapboxApiAccessToken,
-        mapControls, toggleMapControl} = this.props;
 
       const mapProps = {
         ...mapState,
@@ -447,22 +423,23 @@ export default function MapContainerFactory(MapPopover, MapControl) {
             onTogglePerspective={mapStateActions.togglePerspective}
             onToggleSplitMap={mapStateActions.toggleSplitMap}
             onMapToggleLayer={this._handleMapToggleLayer}
-            onToggleFullScreen={mapStateActions.toggleFullScreen}
             onToggleMapControl={toggleMapControl}
           />
-          <this.props.MapComponent
+          <MapComponent
             {...mapProps}
             key="bottom"
             ref={this._setMapboxMap}
             mapStyle={mapStyle.bottomMapStyle}
             onClick={onMapClick}
+            getCursor={this.props.hoverInfo ? () => 'pointer' : undefined}
+            transitionDuration={TRANSITION_DURATION}
           >
             {this._renderOverlay()}
             {this._renderMapboxOverlays()}
-          </this.props.MapComponent>
+          </MapComponent>
           {mapStyle.topMapStyle && (
             <div style={MAP_STYLE.top}>
-              <this.props.MapComponent
+              <MapComponent
                 {...mapProps}
                 key="top"
                 mapStyle={mapStyle.topMapStyle}

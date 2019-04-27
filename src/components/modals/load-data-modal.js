@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,12 +25,10 @@ import styled from 'styled-components';
 import FileUpload from 'components/common/file-uploader/file-upload';
 
 const StyledLoadDataModal = styled.div`
-  padding: 10px 0;
+  padding: ${props => props.theme.modalPadding};
 `;
 
 const propTypes = {
-  onClose: PropTypes.func.isRequired,
-
   // call backs
   onFileUpload: PropTypes.func.isRequired
 };

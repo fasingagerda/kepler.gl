@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -115,7 +115,7 @@ export default class TimeSliderMarker extends Component {
         className="time-slider-marker"
         width={this.props.width}
         height={height}
-        innerRef={comp => {
+        ref={comp => {
           this.svgContainer = comp;
         }}
       >

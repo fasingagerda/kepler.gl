@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,6 @@
 import React, {Component} from 'react';
 import styled from 'styled-components';
 import PropTypes from 'prop-types';
-import {sortable} from 'react-anything-sortable';
 
 import LayerConfigurator from './layer-configurator';
 import LayerPanelHeader from './layer-panel-header';
@@ -30,109 +29,116 @@ const PanelWrapper = styled.div`
   font-size: 12px;
   border-radius: 1px;
   margin-bottom: 8px;
+  z-index: 1000;
 
   &.dragging {
     cursor: move;
   }
 `;
 
-@sortable
-export default class LayerPanel extends Component {
-  static propTypes = {
-    layer: PropTypes.object.isRequired,
-    datasets: PropTypes.object.isRequired,
-    idx: PropTypes.number.isRequired,
-    layerConfigChange: PropTypes.func.isRequired,
-    layerTypeChange: PropTypes.func.isRequired,
-    openModal: PropTypes.func.isRequired,
-    removeLayer: PropTypes.func.isRequired,
-    onCloseConfig: PropTypes.func,
+function LayerPanelFactory() {
 
-    layerTypeOptions: PropTypes.arrayOf(PropTypes.any),
-    layerVisConfigChange: PropTypes.func,
-    layerVisualChannelConfigChange: PropTypes.func
-  };
+  class LayerPanel extends Component {
+    static propTypes = {
+      layer: PropTypes.object.isRequired,
+      datasets: PropTypes.object.isRequired,
+      idx: PropTypes.number.isRequired,
+      layerConfigChange: PropTypes.func.isRequired,
+      layerTypeChange: PropTypes.func.isRequired,
+      openModal: PropTypes.func.isRequired,
+      removeLayer: PropTypes.func.isRequired,
+      onCloseConfig: PropTypes.func,
 
-  updateLayerConfig = newProp => {
-    this.props.layerConfigChange(this.props.layer, newProp);
-  };
+      layerTypeOptions: PropTypes.arrayOf(PropTypes.any),
+      layerVisConfigChange: PropTypes.func,
+      layerVisualChannelConfigChange: PropTypes.func
+    };
 
-  updateLayerType = newType => {
-    this.props.layerTypeChange(this.props.layer, newType);
-  };
+    updateLayerConfig = newProp => {
+      this.props.layerConfigChange(this.props.layer, newProp);
+    };
 
-  updateLayerVisConfig = newVisConfig => {
-    this.props.layerVisConfigChange(this.props.layer, newVisConfig);
-  };
+    updateLayerType = newType => {
+      this.props.layerTypeChange(this.props.layer, newType);
+    };
 
-  updateLayerVisualChannelConfig = (newConfig, channel, scaleKey) => {
-    this.props.layerVisualChannelConfigChange(
-      this.props.layer,
-      newConfig,
-      channel,
-      scaleKey
-    );
-  };
+    updateLayerVisConfig = newVisConfig => {
+      this.props.layerVisConfigChange(this.props.layer, newVisConfig);
+    };
 
-  _updateLayerLabel = ({target: {value}}) => {
-    this.updateLayerConfig({label: value});
-  };
+    updateLayerVisualChannelConfig = (newConfig, channel, scaleKey) => {
+      this.props.layerVisualChannelConfigChange(
+        this.props.layer,
+        newConfig,
+        channel,
+        scaleKey
+      );
+    };
 
-  _toggleVisibility = e => {
-    e.stopPropagation();
-    const isVisible = !this.props.layer.config.isVisible;
-    this.updateLayerConfig({isVisible});
-  };
+    _updateLayerLabel = ({target: {value}}) => {
+      this.updateLayerConfig({label: value});
+    };
 
-  _toggleEnableConfig = e => {
-    e.stopPropagation();
-    const {layer: {config: {isConfigActive}}} = this.props;
-    this.updateLayerConfig({isConfigActive: !isConfigActive});
-  };
+    _toggleVisibility = e => {
+      e.stopPropagation();
+      const isVisible = !this.props.layer.config.isVisible;
+      this.updateLayerConfig({isVisible});
+    };
 
-  _removeLayer = e => {
-    e.stopPropagation();
-    this.props.removeLayer(this.props.idx);
-  };
-  render() {
-    const {layer, idx, datasets, layerTypeOptions} = this.props;
-    const {config} = layer;
-    const {isConfigActive} = config;
+    _toggleEnableConfig = e => {
+      e.stopPropagation();
+      const {layer: {config: {isConfigActive}}} = this.props;
+      this.updateLayerConfig({isConfigActive: !isConfigActive});
+    };
 
-    return (
-      <PanelWrapper
-        active={isConfigActive}
-        className={`layer-panel ${this.props.className}`}
-        style={this.props.style}
-        onMouseDown={this.props.onMouseDown}
-        onTouchStart={this.props.onTouchStart}
-      >
-        <LayerPanelHeader
-          isConfigActive={isConfigActive}
-          id={layer.id}
-          idx={idx}
-          isVisible={config.isVisible}
-          label={config.label}
-          labelRCGColorValues={datasets[config.dataId].color}
-          layerType={layer.name}
-          onToggleEnableConfig={this._toggleEnableConfig}
-          onToggleVisibility={this._toggleVisibility}
-          onUpdateLayerLabel={this._updateLayerLabel}
-          onRemoveLayer={this._removeLayer}
-        />
-        {isConfigActive && (
-          <LayerConfigurator
-            layer={layer}
-            datasets={datasets}
-            layerTypeOptions={layerTypeOptions}
-            openModal={this.props.openModal}
-            updateLayerConfig={this.updateLayerConfig}
-            updateLayerVisualChannelConfig={this.updateLayerVisualChannelConfig}
-            updateLayerType={this.updateLayerType}
-            updateLayerVisConfig={this.updateLayerVisConfig}
+    _removeLayer = e => {
+      e.stopPropagation();
+      this.props.removeLayer(this.props.idx);
+    };
+    render() {
+      const {layer, idx, datasets, layerTypeOptions} = this.props;
+      const {config} = layer;
+      const {isConfigActive} = config;
+
+      return (
+        <PanelWrapper
+          active={isConfigActive}
+          className={`layer-panel ${this.props.className}`}
+          style={this.props.style}
+          onMouseDown={this.props.onMouseDown}
+          onTouchStart={this.props.onTouchStart}
+        >
+          <LayerPanelHeader
+            isConfigActive={isConfigActive}
+            id={layer.id}
+            idx={idx}
+            isVisible={config.isVisible}
+            label={config.label}
+            labelRCGColorValues={datasets[config.dataId].color}
+            layerType={layer.name}
+            onToggleEnableConfig={this._toggleEnableConfig}
+            onToggleVisibility={this._toggleVisibility}
+            onUpdateLayerLabel={this._updateLayerLabel}
+            onRemoveLayer={this._removeLayer}
           />
-        )}
-      </PanelWrapper>
-    );
+          {isConfigActive && (
+            <LayerConfigurator
+              layer={layer}
+              datasets={datasets}
+              layerTypeOptions={layerTypeOptions}
+              openModal={this.props.openModal}
+              updateLayerConfig={this.updateLayerConfig}
+              updateLayerVisualChannelConfig={this.updateLayerVisualChannelConfig}
+              updateLayerType={this.updateLayerType}
+              updateLayerVisConfig={this.updateLayerVisConfig}
+            />
+          )}
+        </PanelWrapper>
+      );
+    }
   }
+
+  return LayerPanel;
 }
+
+export default LayerPanelFactory;

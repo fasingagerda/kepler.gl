@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ export const SelectText = styled.span`
   }
 `;
 
-export const SelectTextBold = SelectText.extend`
+export const SelectTextBold = styled(SelectText)`
   color: ${props => props.theme.textColor};
   font-weight: 500;
 `;
@@ -77,7 +77,7 @@ export const PanelLabelWrapper = styled.div.attrs({
   align-items: self-start;
 `;
 
-export const PanelLabelBold = PanelLabel.extend`
+export const PanelLabelBold = styled(PanelLabel)`
   font-weight: 500;
 `;
 
@@ -182,13 +182,23 @@ export const Button = styled.div.attrs({
         : props.link ? props.theme.linkBtnColor : props.theme.primaryBtnColor};
   cursor: pointer;
   display: inline-flex;
-  font-size: ${props => (props.large ? '14px' : '11px')};
+  font-size: ${props =>
+    props.large ?
+      '14px'
+      : props.small
+        ? '10px'
+        : '11px'};
   font-weight: 500;
   justify-content: center;
   letter-spacing: 0.3px;
   line-height: 14px;
   outline: 0;
-  padding: ${props => (props.large ? '14px 32px' : '9px 12px')};
+  padding: ${props =>
+    props.large ?
+      '14px 32px'
+      : props.small
+        ? '6px 9px'
+        : '9px 12px'};
   text-align: center;
   transition: ${props => props.theme.transition};
   vertical-align: middle;
@@ -232,7 +242,7 @@ export const InputLight = styled.input`
   ${props => props.theme.inputLT}
 `;
 
-export const InlineInput = Input.extend`
+export const InlineInput = styled(Input)`
   ${props => props.theme.inlineInput};
 `;
 
@@ -264,6 +274,8 @@ export const StyledPanelDropdown = styled.div`
   border-radius: ${props => props.theme.panelBorderRadius};
   margin-top: 2px;
   max-height: 500px;
+  position: relative;
+  z-index: 999;
 `;
 
 export const ButtonGroup = styled.div`
@@ -291,10 +303,25 @@ export const DatasetSquare = styled.div`
   margin-right: 12px
 `;
 
+export const SelectionButton = styled.div`
+  border-radius: 2px;
+  border: 1px solid ${props => props.selected ? props.theme.primaryBtnBgd : props.theme.selectBorderColorLT};
+  color: ${props => props.selected ? props.theme.primaryBtnBgd : props.theme.selectBorderColorLT};
+  cursor: pointer;
+  font-weight: 500;
+  margin-right: 6px;
+  padding: 6px 10px;
+
+  :hover {
+    color: ${props => props.available && props.theme.primaryBtnBgd};
+    border: 1px solid ${props => props.available && props.theme.primaryBtnBgd};
+  }
+`;
+
 export const Table = styled.table`
   width: 100%;
   border-spacing: 0;
-  
+
   thead {
     tr th {
       background: ${props => props.theme.panelBackgroundLT};
@@ -303,7 +330,7 @@ export const Table = styled.table`
       text-align: start;
     }
   }
-  
+
   tbody {
    tr td {
      border-bottom: ${props => props.theme.panelBorderLT};

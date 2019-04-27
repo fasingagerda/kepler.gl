@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import React, {Component} from 'react';
+import React from 'react';
 import test from 'tape';
-import {mount, shallow} from 'enzyme';
+import {mount} from 'enzyme';
 import configureStore from 'redux-mock-store';
 import {Provider} from 'react-redux';
 import sinon from 'sinon';
@@ -64,13 +64,13 @@ test('Components -> injector -> injectComponents', t => {
 test('Components -> injector -> missing deps', t => {
   const spy = sinon.spy(Console, 'error');
 
-  const myCutomNameFactory = () => () => <div>name</div>;
+  const myCustomNameFactory = () => () => <div className="my-test-header-name">name</div>;
   const myCustomHeaderFactory = Name => () => (
     <div className="my-test-header-1">
       <Name />smoothie
     </div>
   );
-  myCustomHeaderFactory.deps = [myCutomNameFactory];
+  myCustomHeaderFactory.deps = [myCustomNameFactory];
 
   const KeplerGl = injectComponents([
     [PanelHeaderFactory, myCustomHeaderFactory]
@@ -85,21 +85,15 @@ test('Components -> injector -> missing deps', t => {
 
   const wrapper = mount(
     <Provider store={store}>
-      <KeplerGl id="foo" />
+      <KeplerGl id="foo" mapboxApiAccessToken="smoothie_and_milkshake"/>
     </Provider>
   );
 
-  t.ok(spy.calledOnce, 'should call console.error once');
-  t.equal(
-    spy.getCall(0).args[0],
-    errorMsg.noDep(myCutomNameFactory, myCustomHeaderFactory),
-    'should warn when missing dependencies'
-  );
+  t.ok(spy.notCalled, 'Should automatically add custom deps and not call console.error');
 
-  // test if custom header is still rendered
   t.ok(
-    wrapper.find('.my-test-header-1').length,
-    'should still render custom header'
+    wrapper.find('.my-test-header-name').length,
+    'should still render custom header name'
   );
 
   spy.restore();
@@ -108,7 +102,8 @@ test('Components -> injector -> missing deps', t => {
 
 test('Components -> injector -> wrong factory type', t => {
   const spy = sinon.spy(Console, 'error');
-  const myCustomHeaderFactory = () => () => (
+  // const spy = sinon.spy(Console, 'error');
+  const myCustomHeaderFactory = Name => () => (
     <div className="my-test-header-2">
       <Name />smoothie
     </div>
@@ -127,14 +122,14 @@ test('Components -> injector -> wrong factory type', t => {
 
   const wrapper = mount(
     <Provider store={store}>
-      <KeplerGl id="foo" />
+      <KeplerGl id="foo" mapboxApiAccessToken="smoothie_and_milkshake"/>
     </Provider>
   );
 
-  t.ok(spy.calledOnce, 'should call console.error once');
+  t.ok(spy.calledTwice, 'should call console.error twice');
   t.equal(
     spy.getCall(0).args[0],
-    errorMsg.notFunc,
+    'Error injecting factory: ',
     'should warn when cannot find kepler.gl state'
   );
 
@@ -167,7 +162,7 @@ test('Components -> injector -> withState', t => {
 
   const wrapper = mount(
     <Provider store={store}>
-      <KeplerGl id="foo" />
+      <KeplerGl id="foo" mapboxApiAccessToken="smoothie_and_milkshake"/>
     </Provider>
   );
 

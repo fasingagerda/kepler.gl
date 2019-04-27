@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import classnames from 'classnames';
 import styled from 'styled-components';
+import {sortableHandle} from 'react-sortable-hoc';
 import PanelHeaderAction from 'components/side-panel/panel-header-action';
 import {
   EyeSeen,
@@ -45,7 +46,7 @@ const propTypes = {
   className: PropTypes.string,
   idx: PropTypes.number,
   isConfigActive: PropTypes.bool,
-  labelRCGColorValues: PropTypes.array,
+  labelRCGColorValues: PropTypes.arrayOf(PropTypes.number),
   onUpdateLayerLabel: PropTypes.func,
   onRemoveLayer: PropTypes.func
 };
@@ -55,22 +56,22 @@ const defaultProps = {
   showRemoveLayer: true
 };
 
-const StyledLayerPanelHeader = StyledPanelHeader.extend`
+const StyledLayerPanelHeader = styled(StyledPanelHeader)`
   .layer__remove-layer {
     opacity: 0;
   }
   :hover {
     cursor: pointer;
     background-color: ${props => props.theme.panelBackgroundHover};
-    
+
     .layer__drag-handle {
       opacity: 1;
     }
-    
+
     .layer__remove-layer {
-      opacity: 1;  
+      opacity: 1;
     }
-    
+
     .layer__enable-config {
       color: white
     }
@@ -98,16 +99,24 @@ const LayerTitleSection = styled.div`
   }
 `;
 
-const DragHandle = styled.div`
+const StyledDragHandle = styled.div`
   display: flex;
   align-items: center;
   opacity: 0;
-  
+  z-index: 1000;
+
   :hover {
     cursor: move;
+    opacity: 1;
     color: ${props => props.theme.textColorHl};
   }
 `;
+
+const DragHandle = sortableHandle(({className, children}) =>
+  <StyledDragHandle classname={className}>
+    {children}
+  </StyledDragHandle>
+);
 
 const LayerPanelHeader = ({
   className,

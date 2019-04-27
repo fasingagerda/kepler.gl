@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,14 +30,16 @@ import KeplerGlSchema from 'schemas';
 import {downloadFile, dataURItoBlob} from 'utils/export-image-utils';
 // modals
 import DeleteDatasetModalFactory from './modals/delete-data-modal';
-import IconInfoModalFactory from './modals/icon-info-modal';
 import DataTableModalFactory from './modals/data-table-modal';
 import LoadDataModalFactory from './modals/load-data-modal';
 import ExportImageModalFactory from './modals/export-image-modal';
 import ExportDataModalFactory from './modals/export-data-modal';
+import ExportMapModalFactory from './modals/export-map-modal';
 import ExportConfigModalFactory from './modals/export-config-modal';
 import AddMapStyleModalFactory from './modals/add-map-style-modal';
 
+// Template
+import {exportMapToHTML} from 'templates/export-map';
 import {
   ADD_DATA_ID,
   DATA_TABLE_ID,
@@ -47,6 +49,7 @@ import {
   EXPORT_DATA_TYPE,
   EXPORT_IMAGE_ID,
   EXPORT_CONFIG_ID,
+  EXPORT_MAP_ID,
   ADD_MAP_STYLE_ID
 } from 'constants/default-settings';
 
@@ -69,22 +72,22 @@ const LoadDataModalStyle = css`
 
 ModalContainerFactory.deps = [
   DeleteDatasetModalFactory,
-  IconInfoModalFactory,
   DataTableModalFactory,
   LoadDataModalFactory,
   ExportImageModalFactory,
   ExportDataModalFactory,
+  ExportMapModalFactory,
   ExportConfigModalFactory,
   AddMapStyleModalFactory
 ];
 
 export default function ModalContainerFactory(
   DeleteDatasetModal,
-  IconInfoModal,
   DataTableModal,
   LoadDataModal,
   ExportImageModal,
   ExportDataModal,
+  ExportMapModal,
   ExportConfigModal,
   AddMapStyleModal
 ) {
@@ -159,7 +162,7 @@ export default function ModalContainerFactory(
             this._downloadFile(csv, type, `${filename}_${label}.csv`);
             break;
           }
-          // TODO: support more different data type later.
+          // TODO: support more file types.
           default:
             break;
         }
@@ -185,6 +188,25 @@ export default function ModalContainerFactory(
       this._closeModal();
     };
 
+    _onExportMap = () => {
+      // we are saving both data and config together
+      // TODO: storing a large amount of data in html could be a limitation
+      // but it will work for now as first version
+      const {uiState} = this.props;
+
+      const data = {
+        ...KeplerGlSchema.save(this.props),
+        mapboxApiAccessToken: uiState.exportHtml.exportMapboxAccessToken
+      };
+
+      this._downloadFile(
+        exportMapToHTML(data),
+        'text/html',
+        'kepler.gl.html'
+      );
+    };
+
+    /* eslint-disable complexity */
     render() {
       const {
         containerW,
@@ -202,168 +224,185 @@ export default function ModalContainerFactory(
       let template = null;
       let modalProps = {};
 
-      switch (currentModal) {
-        case 'iconInfo':
-          template = <IconInfoModal />;
-          modalProps.title = 'How to draw icons';
-          break;
-
-        case DATA_TABLE_ID:
-          template = (
-            <DataTableModal
-              width={containerW * 0.9}
-              height={containerH * 0.85}
-              datasets={datasets}
-              dataId={editingDataset}
-              showDatasetTable={visStateActions.showDatasetTable}
-            />
-          );
-          modalProps.cssStyle = DataTableModalStyle;
-          break;
-        case DELETE_DATA_ID:
-          // validate options
-          if (datasetKeyToRemove && datasets && datasets[datasetKeyToRemove]) {
+      if (currentModal && currentModal.id &&
+        currentModal.template) {
+        // if currentMdoal template is already provided
+        // TODO: need to check whether template is valid
+        template = (<currentModal.template/>);
+        modalProps = currentModal.modalProps;
+      } else {
+        switch (currentModal) {
+          case DATA_TABLE_ID:
             template = (
-              <DeleteDatasetModal
-                dataset={datasets[datasetKeyToRemove]}
-                layers={layers}
+              <DataTableModal
+                width={containerW * 0.9}
+                height={containerH * 0.85}
+                datasets={datasets}
+                dataId={editingDataset}
+                showDatasetTable={visStateActions.showDatasetTable}
               />
             );
+            modalProps.cssStyle = DataTableModalStyle;
+            break;
+          case DELETE_DATA_ID:
+            // validate options
+            if (datasetKeyToRemove && datasets && datasets[datasetKeyToRemove]) {
+              template = (
+                <DeleteDatasetModal
+                  dataset={datasets[datasetKeyToRemove]}
+                  layers={layers}
+                />
+              );
 
+              modalProps = {
+                title: 'Delete Dataset',
+                cssStyle: DeleteDatasetModalStyled,
+                footer: true,
+                onConfirm: () => this._deleteDataset(datasetKeyToRemove),
+                onCancel: this._closeModal,
+                confirmButton: {
+                  negative: true,
+                  large: true,
+                  children: 'Delete'
+                }
+              };
+            }
+            break; // in case we add a new case after this one
+          case ADD_DATA_ID:
+            template = (
+              <LoadDataModal
+                onClose={this._closeModal}
+                onFileUpload={this._onFileUpload}
+              />
+            );
             modalProps = {
-              title: 'Delete Dataset',
-              cssStyle: DeleteDatasetModalStyled,
+              title: 'Add Data To Map',
+              cssStyle: LoadDataModalStyle,
+              footer: false,
+              onConfirm: this._closeModal
+            };
+            break;
+          case EXPORT_IMAGE_ID:
+            const { ratio, legend, resolution, exporting, imageDataUri } = uiState.exportImage;
+            template = (
+              <ExportImageModal
+                width={containerW}
+                height={containerH}
+                legend={legend}
+                ratio={ratio}
+                resolution={resolution}
+                exporting={exporting}
+                imageDataUri={imageDataUri}
+                onChangeRatio={this.props.uiStateActions.setRatio}
+                onChangeResolution={this.props.uiStateActions.setResolution}
+                onToggleLegend={this.props.uiStateActions.toggleLegend}
+              />
+            );
+            modalProps = {
+              close: false,
+              title: 'Export Image',
               footer: true,
-              onConfirm: () => this._deleteDataset(datasetKeyToRemove),
               onCancel: this._closeModal,
+              onConfirm: this._onExportImage,
               confirmButton: {
-                negative: true,
                 large: true,
-                children: 'Delete'
+                disabled: exporting,
+                children: 'Download'
               }
             };
-          }
-          break; // in case we add a new case after this one
-        case ADD_DATA_ID:
-          template = (
-            <LoadDataModal
-              onClose={this._closeModal}
-              onFileUpload={this._onFileUpload}
-            />
-          );
-          modalProps = {
-            title: 'Add Data To Map',
-            cssStyle: LoadDataModalStyle,
-            footer: false,
-            onConfirm: this._closeModal
-          };
-          break;
-
-        case EXPORT_IMAGE_ID:
-          const {ratio, legend, resolution, exporting, imageDataUri} = uiState.exportImage;
-          template = (
-            <ExportImageModal
-              width={containerW}
-              height={containerH}
-              legend={legend}
-              ratio={ratio}
-              resolution={resolution}
-              exporting={exporting}
-              imageDataUri={imageDataUri}
-              onChangeRatio={this.props.uiStateActions.setRatio}
-              onChangeResolution={this.props.uiStateActions.setResolution}
-              onToggleLegend={this.props.uiStateActions.toggleLegend}
-            />
-          );
-          modalProps = {
-            close: false,
-            title: 'Export Image',
-            footer: true,
-            onCancel: this._closeModal,
-            onConfirm: this._onExportImage,
-            confirmButton: {
-              large: true,
-              disabled: exporting,
-              children: 'Download'
-            }
-          };
-          break;
-
-        case EXPORT_DATA_ID:
-
-          template = (
-            <ExportDataModal
-              {...uiState.exportData}
-              datasets={datasets}
-              onClose={this._closeModal}
-              onChangeExportDataType={this.props.uiStateActions.setExportDataType}
-              onChangeExportSelectedDataset={this.props.uiStateActions.setExportSelectedDataset}
-              onChangeExportFiltered={this.props.uiStateActions.setExportFiltered}
-            />
-          );
-          modalProps = {
-            close: false,
-            title: 'Export Data',
-            footer: true,
-            onCancel: this._closeModal,
-            onConfirm: this._onExportData,
-            confirmButton: {
-              large: true,
-              children: 'Export'
-            }
-          };
-          break;
-
-        case EXPORT_CONFIG_ID:
-          const keplerGlConfig = KeplerGlSchema.getConfigToSave(
-            {mapStyle, visState, mapState, uiState}
-          );
-          template = (
-            <ExportConfigModal
-              config={keplerGlConfig}
-              data={uiState.exportData.data}
-              onClose={this._closeModal}
-              onChangeExportData={this.props.uiStateActions.setExportData}
-            />
-          );
-          modalProps = {
-            close: false,
-            title: 'Export Config',
-            footer: true,
-            onCancel: this._closeModal,
-            onConfirm: this._onExportConfig,
-            confirmButton: {
-              large: true,
-              children: 'Export'
-            }
-          };
-          break;
-
-        case ADD_MAP_STYLE_ID:
-          template = (
-            <AddMapStyleModal
-              mapboxApiAccessToken={this.props.mapboxApiAccessToken}
-              mapState={this.props.mapState}
-              inputStyle={mapStyle.inputStyle}
-              inputMapStyle={this.props.mapStyleActions.inputMapStyle}
-              loadCustomMapStyle={this.props.mapStyleActions.loadCustomMapStyle}
-            />
-          );
-          modalProps = {
-            close: false,
-            title: 'Add Custom Mapbox Style',
-            footer: true,
-            onCancel: this._closeModal,
-            onConfirm: this._onAddCustomMapStyle,
-            confirmButton: {
-              large: true,
-              disabled: !mapStyle.inputStyle.style,
-              children: 'Add Style'
-            }
-          };
-          break;
-        default:
-          break;
+            break;
+          case EXPORT_DATA_ID:
+            template = (
+              <ExportDataModal
+                {...uiState.exportData}
+                datasets={datasets}
+                onClose={this._closeModal}
+                onChangeExportDataType={this.props.uiStateActions.setExportDataType}
+                onChangeExportSelectedDataset={this.props.uiStateActions.setExportSelectedDataset}
+                onChangeExportFiltered={this.props.uiStateActions.setExportFiltered}
+              />
+            );
+            modalProps = {
+              close: false,
+              title: 'Export Data',
+              footer: true,
+              onCancel: this._closeModal,
+              onConfirm: this._onExportData,
+              confirmButton: {
+                large: true,
+                children: 'Export'
+              }
+            };
+            break;
+          case EXPORT_CONFIG_ID:
+            const keplerGlConfig = KeplerGlSchema.getConfigToSave(
+              { mapStyle, visState, mapState, uiState }
+            );
+            template = (
+              <ExportConfigModal
+                config={keplerGlConfig}
+                data={uiState.exportData.data}
+                onClose={this._closeModal}
+                onChangeExportData={this.props.uiStateActions.setExportData}
+              />
+            );
+            modalProps = {
+              close: false,
+              title: 'Export Config',
+              footer: true,
+              onCancel: this._closeModal,
+              onConfirm: this._onExportConfig,
+              confirmButton: {
+                large: true,
+                children: 'Export'
+              }
+            };
+            break;
+          case ADD_MAP_STYLE_ID:
+            template = (
+              <AddMapStyleModal
+                mapboxApiAccessToken={this.props.mapboxApiAccessToken}
+                mapState={this.props.mapState}
+                inputStyle={mapStyle.inputStyle}
+                inputMapStyle={this.props.mapStyleActions.inputMapStyle}
+                loadCustomMapStyle={this.props.mapStyleActions.loadCustomMapStyle}
+              />
+            );
+            modalProps = {
+              close: false,
+              title: 'Add Custom Mapbox Style',
+              footer: true,
+              onCancel: this._closeModal,
+              onConfirm: this._onAddCustomMapStyle,
+              confirmButton: {
+                large: true,
+                disabled: !mapStyle.inputStyle.style,
+                children: 'Add Style'
+              }
+            };
+            break;
+          case EXPORT_MAP_ID:
+            template = (
+              <ExportMapModal
+                exportHtml={uiState.exportHtml}
+                onExportMapboxAccessToken={this.props.uiStateActions.setExportMapboxAccessToken}
+              />
+            );
+            modalProps = {
+              close: false,
+              title: 'Export map',
+              footer: true,
+              onCancel: this._closeModal,
+              onConfirm: this._onExportMap,
+              confirmButton: {
+                large: true,
+                children: 'Export'
+              }
+            };
+            break;
+          default:
+            break;
+        }
       }
 
       return this.props.rootNode ? (
@@ -377,6 +416,7 @@ export default function ModalContainerFactory(
         </ModalDialog>
       ) : null;
     }
+    /* eslint-enable complexity */
   }
 
   return ModalWrapper;

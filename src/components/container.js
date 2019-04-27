@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@ import {connect} from 'react-redux';
 import memoize from 'lodash.memoize';
 import {console as Console} from 'global/window';
 import {injector} from './injector';
-import KeplerGlFactory, {keplerGlChildDeps} from './kepler-gl';
+import KeplerGlFactory from './kepler-gl';
 import {forwardTo} from 'actions/action-wrapper';
 
 import {
@@ -48,6 +48,30 @@ export const errorMsg = {
 ContainerFactory.deps = [KeplerGlFactory];
 
 export function ContainerFactory(KeplerGl) {
+  /** @lends KeplerGl */
+  /**
+    * Main Kepler.gl Component
+    * @param {Object} props
+    *
+    * @param {string} props.id - _required_
+    *
+    * - Default: `map`
+    * The id of this KeplerGl instance. `id` is required if you have multiple
+    * KeplerGl instances in your app. It defines the prop name of the KeplerGl state that is
+    * stored in the KeplerGl reducer. For example, the state of the KeplerGl component with id `foo` is
+    * stored in `state.keplerGl.foo`.
+    *
+    * In case you create multiple kepler.gl instances using the same id, the kepler.gl state defined by the entry will be
+    * overridden by the latest instance and reset to a blank state.
+    * @param {string} props.mapboxApiAccessToken - _required_
+
+    * You can create a free account at [www.mapbox.com](www.mapbox.com) and create a token at
+    * [www.mapbox.com/account/access-tokens](www.mapbox.com/account/access-tokens)
+    *
+    *
+    * @param {Number} props.width - _required_ Width of the KeplerGl UI.
+    * @public
+   */
   class Container extends Component {
     // default id and address if not provided
     static defaultProps = {
@@ -79,8 +103,8 @@ export function ContainerFactory(KeplerGl) {
 
     componentWillReceiveProps(nextProps) {
       // check if id has changed, if true, copy state over
-      if (nextProps.id !== this.props.id) {
-        this.props.dispatch(renameEntry(this.props.id, nextProps));
+      if (nextProps.id && nextProps.id !== this.props.id) {
+        this.props.dispatch(renameEntry(this.props.id, nextProps.id));
       }
     }
 
@@ -116,13 +140,19 @@ export function ContainerFactory(KeplerGl) {
   return connect(mapStateToProps, dispatchToProps)(Container);
 }
 
-// provide all recipes to injector
-export const appInjector = [
-  ContainerFactory,
-  ...ContainerFactory.deps,
-  ...KeplerGlFactory.deps,
-  ...keplerGlChildDeps
-].reduce((inj, factory) => inj.provide(factory, factory), injector());
+// entryPoint
+function flattenDeps(allDeps, factory) {
+  const addToDeps = allDeps.concat([factory]);
+  return Array.isArray(factory.deps) && factory.deps.length ?
+    factory.deps.reduce((accu, dep) => flattenDeps(accu, dep), addToDeps) :
+    addToDeps;
+}
+
+const allDependencies = flattenDeps([], ContainerFactory);
+
+// provide all dependencies to appInjector
+export const appInjector = allDependencies
+  .reduce((inj, factory) => inj.provide(factory, factory), injector());
 
 // Helper to inject custom components and return kepler.gl container
 export function injectComponents(recipes) {
@@ -137,6 +167,13 @@ export function injectComponents(recipes) {
         Console.error(errorMsg.wrongPairType);
         return inj;
       }
+
+      // collect dependencies of custom factories, if there is any.
+      // Add them to the injector
+      const customDependencies = flattenDeps([], recipe[1]);
+      inj = customDependencies
+        .reduce((ij, factory) => ij.provide(factory, factory), inj);
+
       return inj.provide(...recipe);
     }, appInjector)
     .get(ContainerFactory);

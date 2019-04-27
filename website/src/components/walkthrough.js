@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -118,6 +118,7 @@ class Walkthrough extends PureComponent {
               <VideoWrapper key={videoUrl}>
                 <VideoContainer>
                   <video
+                    muted
                     src={videoUrl}
                     poster={imageUrl}
                     autoPlay={i === selectedIndex}

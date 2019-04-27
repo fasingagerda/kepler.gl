@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,7 @@ export {
   DIMENSIONS,
   ALL_FIELD_TYPES,
   FIELD_OPTS,
+  FILTER_TYPES,
   GEOJSON_FIELDS,
   ICON_FIELDS,
   TRIP_POINT_FIELDS,
@@ -31,7 +32,17 @@ export {
   LAYER_TYPES,
   LAYER_BLENDINGS,
   AGGREGATION_TYPES,
-  MAX_DEFAULT_TOOLTIPS
+  MAX_DEFAULT_TOOLTIPS,
+  DATA_TABLE_ID,
+  DELETE_DATA_ID,
+  ADD_DATA_ID,
+  EXPORT_IMAGE_ID,
+  EXPORT_DATA_ID,
+  EXPORT_CONFIG_ID,
+  ADD_MAP_STYLE_ID,
+  DEFAULT_LAYER_GROUPS,
+  DEFAULT_MAP_STYLES,
+  THEME
 } from './default-settings';
 export {VizColorPalette, DataVizColors} from './custom-color-ranges';
 export {COLOR_RANGES, DefaultColorRange} from './color-ranges';

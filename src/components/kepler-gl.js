@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,26 +21,31 @@
 import React, {Component} from 'react';
 import {console as Console} from 'global/window';
 import {bindActionCreators} from 'redux';
-import {json as requestJson} from 'd3-request';
-import styled, {ThemeProvider}  from 'styled-components';
-import {connect as keplerGlConnect} from '../connect/keplergl-connect';
+import styled, {ThemeProvider, withTheme}  from 'styled-components';
+import {createSelector} from 'reselect';
+import {connect as keplerGlConnect} from 'connect/keplergl-connect';
 
 import * as VisStateActions from 'actions/vis-state-actions';
 import * as MapStateActions from 'actions/map-state-actions';
 import * as MapStyleActions from 'actions/map-style-actions';
 import * as UIStateActions from 'actions/ui-state-actions';
 
-import {EXPORT_IMAGE_ID, DIMENSIONS, DEFAULT_MAP_STYLES,
-  KEPLER_GL_NAME, KEPLER_GL_VERSION} from 'constants/default-settings';
+import {EXPORT_IMAGE_ID, DIMENSIONS,
+  KEPLER_GL_NAME, KEPLER_GL_VERSION, THEME} from 'constants/default-settings';
 
 import SidePanelFactory from './side-panel';
 import MapContainerFactory from './map-container';
 import BottomWidgetFactory from './bottom-widget';
 import ModalContainerFactory from './modal-container';
 import PlotContainerFactory from './plot-container';
+import NotificationPanelFactory from './notification-panel';
 
-import {theme} from 'styles/base';
+import {generateHashId} from 'utils/utils';
 
+import {theme as basicTheme, themeLT} from 'styles/base';
+
+// Maybe we should think about exporting this or creating a variable
+// as part of the base.js theme
 const GlobalStyle = styled.div`
   font-family: ff-clan-web-pro, 'Helvetica Neue', Helvetica, sans-serif;
   font-weight: 400;
@@ -70,19 +75,13 @@ const GlobalStyle = styled.div`
   }
 `;
 
-export const keplerGlChildDeps = [
-  ...BottomWidgetFactory.deps,
-  ...SidePanelFactory.deps,
-  ...ModalContainerFactory.deps,
-  ...MapContainerFactory.deps
-];
-
 KeplerGlFactory.deps = [
   BottomWidgetFactory,
   MapContainerFactory,
   ModalContainerFactory,
   SidePanelFactory,
-  PlotContainerFactory
+  PlotContainerFactory,
+  NotificationPanelFactory
 ];
 
 function KeplerGlFactory(
@@ -90,7 +89,8 @@ function KeplerGlFactory(
   MapContainer,
   ModalWrapper,
   SidePanel,
-  PlotContainer
+  PlotContainer,
+  NotificationPanel
 ) {
   class KeplerGL extends Component {
     static defaultProps = {
@@ -98,7 +98,9 @@ function KeplerGlFactory(
       width: 800,
       height: 800,
       appName: KEPLER_GL_NAME,
-      version: KEPLER_GL_VERSION
+      version: KEPLER_GL_VERSION,
+      sidePanelWidth: DIMENSIONS.sidePanel.width,
+      theme: {}
     };
 
     componentWillMount() {
@@ -119,6 +121,16 @@ function KeplerGlFactory(
       }
     }
 
+    /* selector */
+    themeSelector = props => props.theme;
+    availableThemeSelector = createSelector(
+      this.themeSelector,
+      theme => typeof theme === 'object' ? ({
+        ...basicTheme,
+        ...theme
+      }) : theme === THEME.light ? themeLT : theme
+    );
+
     _handleResize({width, height}) {
       if (!Number.isFinite(width) || !Number.isFinite(height)) {
         Console.warn('width and height is required');
@@ -131,30 +143,23 @@ function KeplerGlFactory(
     }
 
     _loadMapStyle = () => {
-      [...this.props.mapStyles, ...Object.values(DEFAULT_MAP_STYLES)].forEach(
-        style => {
-          if (style.style) {
-            this.props.mapStyleActions.loadMapStyles({
-              [style.id]: style
-            })
-          } else {
-            this._requestMapStyle(style);
-          }
-        }
-      );
-    };
+      const defaultStyles = Object.values(this.props.mapStyle.mapStyles);
+      // add id to custom map styles if not given
+      const customStyles = (this.props.mapStyles || []).map(ms => ({
+        ...ms,
+        id: ms.id || generateHashId()
+      }));
 
-    _requestMapStyle = (mapStyle) => {
-      const {url, id} = mapStyle;
-      requestJson(url, (error, result) => {
-        if (error) {
-          Console.warn(`Error loading map style ${mapStyle.url}`);
-        } else {
-          this.props.mapStyleActions.loadMapStyles({
-            [id]: {...mapStyle, style: result}
-          });
-        }
-      });
+      const allStyles = [...customStyles, ...defaultStyles].reduce((accu, style) => {
+          const hasStyleObject = style.style && typeof style.style === 'object';
+          accu[hasStyleObject ? 'toLoad' : 'toRequest'][style.id] = style;
+
+          return accu;
+        }, {toLoad: {}, toRequest: {}}
+      );
+
+      this.props.mapStyleActions.loadMapStyles(allStyles.toLoad);
+      this.props.mapStyleActions.requestMapStyles(allStyles.toRequest);
     };
 
     render() {
@@ -167,6 +172,7 @@ function KeplerGlFactory(
         width,
         height,
         mapboxApiAccessToken,
+        getMapboxRef,
 
         // redux state
         mapStyle,
@@ -195,6 +201,11 @@ function KeplerGlFactory(
         clicked
       } = visState;
 
+      const notificationPanelFields = {
+        removeNotification: uiStateActions.removeNotification,
+        notifications: uiState.notifications
+      };
+
       const sideFields = {
         appName,
         version,
@@ -211,7 +222,7 @@ function KeplerGlFactory(
         mapStyleActions,
         visStateActions,
         uiStateActions,
-        width: DIMENSIONS.sidePanel.width
+        width: this.props.sidePanelWidth
       };
 
       const mapFields = {
@@ -243,6 +254,7 @@ function KeplerGlFactory(
               index={0}
               {...mapFields}
               mapLayers={isSplit ? splitMaps[0].layers : null}
+              getMapboxRef={getMapboxRef}
             />
           ]
         : splitMaps.map((settings, index) => (
@@ -251,10 +263,13 @@ function KeplerGlFactory(
               index={index}
               {...mapFields}
               mapLayers={splitMaps[index].layers}
+              getMapboxRef={getMapboxRef}
             />
           ));
 
       const isExporting = uiState.currentModal === EXPORT_IMAGE_ID;
+
+      const theme = this.availableThemeSelector(this.props);
 
       return (
         <ThemeProvider theme={theme}>
@@ -266,10 +281,11 @@ function KeplerGlFactory(
             }}
             className="kepler-gl"
             id={`kepler-gl__${id}`}
-            innerRef={node => {
+            ref={node => {
               this.root = node;
             }}
           >
+            <NotificationPanel {...notificationPanelFields} />
             {!uiState.readOnly && <SidePanel {...sideFields} />}
             <div className="maps" style={{display: 'flex'}}>
               {mapContainers}
@@ -290,7 +306,7 @@ function KeplerGlFactory(
               uiState={uiState}
               visStateActions={visStateActions}
               sidePanelWidth={
-                DIMENSIONS.sidePanel.width + DIMENSIONS.sidePanel.margin.left
+                uiState.readOnly ? 0 : this.props.sidePanelWidth + DIMENSIONS.sidePanel.margin.left
               }
               containerW={containerW}
             />
@@ -313,7 +329,7 @@ function KeplerGlFactory(
     }
   }
 
-  return keplerGlConnect(mapStateToProps, mapDispatchToProps)(KeplerGL);
+  return keplerGlConnect(mapStateToProps, mapDispatchToProps)(withTheme(KeplerGL));
 }
 
 function mapStateToProps(state, props) {
